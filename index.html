@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Nómina Completa - Colombia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Estilos generales para la aplicación */
+        .time-input {
+            width: 100%; /* Hacer que los inputs de tiempo ocupen el ancho completo de su celda */
+            min-width: 120px; /* Un ancho mínimo para que no se vean muy pequeños */
+        }
+        .day-label {
+            width: 100px; /* Ancho para la etiqueta del día */
+            white-space: nowrap; /* Evitar que el nombre del día se parta */
+        }
+        /* Colores para tipos de días en la tabla */
+        .domingo-row {
+            background-color: rgba(255, 230, 230, 0.6); /* Rojo claro para domingos */
+        }
+        .festivo-row {
+            background-color: rgba(255, 255, 200, 0.7); /* Amarillo claro para festivos */
+        }
+        .domingo-festivo-row {
+            background-color: rgba(255, 220, 180, 0.7); /* Naranja claro para domingo y festivo */
+        }
+        /* Ajuste para el input de horas de descanso */
+        .descanso-input {
+            width: 100px; /* Ancho específico para el input de horas de descanso */
+        }
+
+        /* Animación para el reordenamiento de filas */
+        .fila-movimiento {
+            transition: transform 0.4s ease-in-out, opacity 0.3s ease-in-out; /* Transición suave */
+        }
+        .highlight {
+            animation: highlightAnimation 1.2s ease-out;
+        }
+        @keyframes highlightAnimation {
+            0% { background-color: rgba(135, 206, 250, 0.8); } /* Azul cielo más opaco */
+            70% { background-color: rgba(135, 206, 250, 0.4); }
+            100% { background-color: transparent; }
+        }
+
+        /* Mejoras visuales para inputs y botones */
+        input[type="text"], input[type="number"], input[type="time"], input[type="date"], select {
+            transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, input[type="time"]:focus, input[type="date"]:focus, select:focus {
+            border-color: #3b82f6; /* Azul Tailwind */
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+        }
+        button {
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+        }
+        button:hover {
+            filter: brightness(110%);
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Estilos para el recibo tipo POS */
+        .receipt-container {
+            max-width: 380px; /* Ancho típico de un recibo POS */
+            margin: 0 auto;
+            background-color: #fff;
+            border: 1px solid #eee;
+            padding: 20px;
+            font-family: 'Courier New', Courier, monospace; /* Fuente monoespaciada para simular recibo */
+            font-size: 0.9rem;
+            line-height: 1.4;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden; /* Para la animación */
+            transform: translateY(20px); /* Posición inicial para animación */
+            opacity: 0; /* Oculto inicialmente */
+            animation: fade-in-slide-up 0.8s ease-out forwards;
+        }
+
+        @keyframes fade-in-slide-up {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .receipt-header, .receipt-footer {
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #ccc;
+            margin-bottom: 15px;
+        }
+        .receipt-footer {
+            border-top: 1px dashed #ccc;
+            border-bottom: none;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+        .receipt-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+        .receipt-total {
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 8px 0;
+            border-top: 1px dashed #ccc;
+            margin-top: 10px;
+        }
+        .receipt-title {
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        /* Estilos para la impresión */
+        @media print {
+            @page {
+                size: Letter; /* Tamaño de papel carta */
+                margin: 0.5in; /* Márgenes de 0.5 pulgadas */
+            }
+            body {
+                zoom: 0.80; /* Reducir un poco el tamaño para que quepa mejor */
+                -webkit-print-color-adjust: exact !important; /* Forzar impresión de colores de fondo en Chrome/Safari */
+                color-adjust: exact !important; /* Estándar para forzar impresión de colores */
+                font-size: 10pt; /* Ajustar el tamaño de fuente general para impresión */
+            }
+            .no-print {
+                display: none !important; /* Ocultar elementos no deseados en impresión */
+            }
+            
+            /* Oculta todas las secciones por defecto en impresión, excepto las que se activen explícitamente */
+            section {
+                display: none !important; 
+            }
+
+            table, th, td {
+                border: 1px solid #ccc !important; /* Asegurar bordes visibles en la tabla al imprimir */
+            }
+            th {
+                background-color: #f2f2f2 !important; /* Fondo claro para encabezados de tabla en impresión */
+            }
+            /* Restablecer colores de fondo para impresión si el navegador lo permite */
+            .domingo-row, .festivo-row, .domingo-festivo-row {
+                background-color: inherit !important; 
+            }
+
+            /* PRINT MODE FOR NOMINA (Detailed Results) */
+            body.print-mode-nomina #resultadosSeccion {
+                display: block !important; /* Muestra solo esta sección */
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border: none;
+                animation: none;
+                transform: none;
+                opacity: 1;
+            }
+
+            /* PRINT MODE FOR RECIBO (Receipt) */
+            body.print-mode-recibo #reciboNominaSeccion {
+                display: block !important; /* Muestra solo esta sección */
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border: none;
+                animation: none;
+                transform: none;
+                opacity: 1;
+            }
+        }
+
+        /* Estilos para responsividad en móviles */
+        @media (max-width: 640px) {
+            .mobile-stack {
+                flex-direction: column; /* Apilar elementos en móviles */
+            }
+            .mobile-stack > * {
+                margin-bottom: 0.5rem; /* Espacio entre elementos apilados */
+            }
+            .time-input, #fechaInicio, #fechaFin {
+                font-size: 0.875rem; /* Reducir tamaño de fuente en inputs de tiempo y fecha en móviles */
+            }
+            .container {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+            .receipt-container {
+                margin: 0 10px; /* Margen en móviles */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-indigo-100 min-h-screen font-sans">
+    <div class="container mx-auto px-2 sm:px-4 py-8">
+        <header class="text-center mb-10 no-print">
+            <h1 class="text-4xl font-bold text-indigo-700 mb-3">Calculadora de Nómina Colombiana</h1>
+            <p class="text-gray-600 text-lg">Herramienta detallada para el cálculo de nómina según la legislación vigente.</p>
+        </header>
+        
+        <section class="bg-white rounded-xl shadow-2xl p-6 sm:p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b-2 border-indigo-200 pb-3">Configuración Básica del Empleado</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mb-4">
+                <div>
+                    <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Trabajador</label>
+                    <input type="text" id="nombre" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm" placeholder="Nombre completo">
+                </div>
+                <div>
+                    <label for="cedula" class="block text-sm font-medium text-gray-700 mb-1">Cédula</label>
+                    <input type="text" id="cedula" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm" placeholder="Número de cédula">
+                </div>
+                <div>
+                    <label for="salario" class="block text-sm font-medium text-gray-700 mb-1">Salario Mensual (COP)</label>
+                    <input type="number" id="salario" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm" value="1423500" min="0">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mb-4">
+                <div>
+                    <label for="transporte" class="block text-sm font-medium text-gray-700 mb-1">Auxilio Transporte (COP Mensual)</label>
+                    <input type="number" id="transporte" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm" value="162000" min="0">
+                </div>
+                <div>
+                    <label for="jornada" class="block text-sm font-medium text-gray-700 mb-1">Jornada Laboral (horas/semana)</label>
+                    <select id="jornada" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm bg-white">
+                        <option value="47">47 horas (Ley 2101 - 2024)</option>
+                        <option value="46" selected>46 horas (Ley 2101 - 2025)</option>
+                        <option value="44">44 horas (Ley 2101 - 2026)</option>
+                        <option value="42">42 horas (Ley 2101 - Final)</option>
+                        <option value="48">48 horas (Anterior)</option>
+                        <option value="40">40 horas (Especial)</option>
+                        <option value="36">36 horas (Especial)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="descanso" class="block text-sm font-medium text-gray-700 mb-1">Día de Descanso Principal</label>
+                    <select id="descanso" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm bg-white">
+                        <option value="domingo">Domingo</option>
+                        <option value="sabado">Sábado</option>
+                        <option value="lunes">Lunes</option>
+                        <option value="otro">Otro (manual)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mb-6">
+                <div>
+                    <label for="reembolso" class="block text-sm font-medium text-gray-700 mb-1">Otros Ingresos / Reembolsos (COP)</label>
+                    <input type="number" id="reembolso" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm" value="0" min="0">
+                </div>
+                <div>
+                    <label for="descuento" class="block text-sm font-medium text-gray-700 mb-1">Otros Descuentos (COP)</label>
+                    <input type="number" id="descuento" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm" value="0" min="0">
+                </div>
+            </div>
+            
+            <h3 class="text-xl font-medium text-gray-700 mb-3 mt-4">Configuración de Horarios por Defecto</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 mb-4">
+                <div>
+                    <label for="horaEntrada" class="block text-sm font-medium text-gray-700 mb-1">Hora de Entrada</label>
+                    <input type="time" id="horaEntrada" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm time-input">
+                </div>
+                <div>
+                    <label for="horaSalida" class="block text-sm font-medium text-gray-700 mb-1">Hora de Salida</label>
+                    <input type="time" id="horaSalida" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm time-input">
+                </div>
+                <div>
+                    <label for="horasDescansoPeriodo" class="block text-sm font-medium text-gray-700 mb-1">Descanso (Almuerzo, etc.)</label>
+                    <input type="number" id="horasDescansoPeriodo" class="w-24 p-2.5 border border-gray-300 rounded-lg shadow-sm descanso-input" value="1" min="0" max="4" step="0.25">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Rango para Prellenar</label>
+                    <div class="flex gap-2">
+                        <input type="date" id="fechaInicio" class="flex-1 p-2.5 border border-gray-300 rounded-xl shadow-sm">
+                        <input type="date" id="fechaFin" class="flex-1 p-2.5 border border-gray-300 rounded-xl shadow-sm">
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-4 no-print">
+                <button id="prellenar" class="bg-indigo-600 text-white py-2.5 px-5 rounded-lg hover:bg-indigo-700 shadow-md">
+                    <i class="fas fa-magic mr-2"></i>Prellenar Horarios
+                </button>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-xl shadow-2xl p-6 sm:p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b-2 border-indigo-200 pb-3">Registro Detallado de Horarios</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-200 rounded-lg">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sem.</th>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha</th>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Día</th>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Entrada</th>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Salida</th>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aux. Trans.</th>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Festivo</th>
+                            <th class="py-3 px-3 sm:px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider no-print">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="horarios" class="divide-y divide-gray-200">
+                        </tbody>
+                </table>
+            </div>
+            <div class="mt-6 flex flex-col sm:flex-row justify-start sm:justify-end gap-3 no-print">
+                <button id="agregarDia" class="bg-blue-600 text-white py-2.5 px-5 rounded-lg hover:bg-blue-700 shadow-md">
+                    <i class="fas fa-plus mr-2"></i>Agregar Día Manualmente
+                </button>
+                <button id="calcular" class="bg-green-600 text-white py-2.5 px-6 rounded-lg hover:bg-green-700 shadow-md font-semibold">
+                    <i class="fas fa-calculator mr-2"></i>Calcular Nómina del Periodo
+                </button>
+            </div>
+        </section>
+
+        <section id="resultadosSeccion" class="bg-white rounded-xl shadow-2xl p-6 sm:p-8 mb-8" style="display: none;">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b-2 border-indigo-200 pb-3">Resultados del Cálculo de Nómina</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                    <h3 class="text-xl font-medium text-gray-700 mb-3">Resumen de Horas del Periodo</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-2 text-sm">
+                        <div class="flex justify-between py-1.5 border-b"><span>Días Trabajados en Periodo:</span><span id="diasTrabajados" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Días Festivos Trabajados:</span><span id="diasFestivos" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>H. Ordinarias Diurnas:</span><span id="horasOrdinarias" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>H. con Recargo Nocturno (en jornada):</span><span id="horasNocturnas" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>H. Extra Diurnas:</span><span id="horasExtraDiurnas" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>H. Extra Nocturnas:</span><span id="horasExtraNocturnas" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>H. Ord. Dominical/Festiva Diurna:</span><span id="horasDominicalesDiurnas" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>H. Ord. Dominical/Festiva Nocturna:</span><span id="horasDominicalesNocturnas" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>H. Extra Dominical/Festiva Diurna:</span><span id="horasExtraDominicalesDiurnas" class="font-medium">0</span></div>
+                        <div class="flex justify-between py-1.5"><span>H. Extra Dominical/Festiva Nocturna:</span><span id="horasExtraDominicalesNocturnas" class="font-medium">0</span></div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-xl font-medium text-gray-700 mb-3">Total Devengado</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-2 text-sm">
+                        <div class="flex justify-between py-1.5 border-b"><span>Salario Base (días trabajados):</span><span id="salarioBaseCalculado" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Valor H. Ordinarias Diurnas:</span><span id="valorOrdinarias" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Valor Recargo Nocturno:</span><span id="valorRecargoNocturno" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Valor H. Extra Diurnas:</span><span id="valorExtraDiurnas" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Valor H. Extra Nocturnas:</span><span id="valorExtraNocturnas" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Valor H. Ord. Dom./Fest. Diurna:</span><span id="valorDominicalesDiurnas" class="font-medium">$0</span></div>
+                         <div class="flex justify-between py-1.5 border-b"><span>Valor H. Ord. Dom./Fest. Nocturna:</span><span id="valorDominicalesNocturnas" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Valor H. Extra Dom./Fest. Diurna:</span><span id="valorExtraDominicalesDiurnas" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Valor H. Extra Dom./Fest. Nocturna:</span><span id="valorExtraDominicalesNocturnas" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Auxilio Transporte:</span><span id="valorTransporte" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Otros Ingresos / Reembolsos:</span><span id="valorReembolso" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 font-bold text-lg text-indigo-700"><span>Total Devengado:</span><span id="totalDevengado">$0</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-8">
+                <div>
+                    <h3 class="text-xl font-medium text-gray-700 mb-3">Deducciones</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-2 text-sm">
+                        <div class="flex justify-between py-1.5 border-b"><span>Salud (4% s/IBC):</span><span id="deduccionSalud" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Pensión (4% s/IBC):</span><span id="deduccionPension" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 border-b"><span>Otros Descuentos:</span><span id="valorDescuento" class="font-medium">$0</span></div>
+                        <div class="flex justify-between py-1.5 font-bold text-lg text-red-600"><span>Total Deducciones:</span><span id="totalDeducciones">$0</span></div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-xl font-medium text-gray-700 mb-3">Neto a Pagar</h3>
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <div class="flex justify-between items-center py-1.5 font-bold text-2xl text-green-700">
+                            <span>Total Neto del Periodo:</span>
+                            <span id="netoPagar">$0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-10 flex flex-col sm:flex-row justify-center gap-4 no-print">
+                <button id="imprimir" class="bg-gray-700 text-white py-3 px-8 rounded-lg hover:bg-gray-800 shadow-md flex items-center text-lg">
+                    <i class="fas fa-print mr-3"></i>Imprimir Nómina
+                </button>
+                <button id="guardarEnSheets" class="bg-purple-600 text-white py-3 px-8 rounded-lg hover:bg-purple-700 shadow-md flex items-center text-lg">
+                    <i class="fas fa-save mr-3"></i>Guardar en Sheets
+                </button>
+                <button id="mostrarImprimirReciboBtn" class="bg-indigo-600 text-white py-3 px-8 rounded-lg hover:bg-indigo-700 shadow-md flex items-center text-lg">
+                    <i class="fas fa-receipt mr-3"></i>Ver e Imprimir Recibo
+                </button>
+            </div>
+        </section>
+
+        <section id="reciboNominaSeccion" class="bg-white rounded-xl shadow-2xl p-6 sm:p-8" style="display: none;">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b-2 border-indigo-200 pb-3">Recibo de Pago de Nómina</h2>
+            <div class="receipt-container">
+                <div class="receipt-header">
+                    <div class="receipt-title">RECIBO DE PAGO DE NÓMINA</div>
+                    <p>Fecha de Emisión: <span id="receiptFechaEmision"></span></p>
+                </div>
+
+                <div class="mb-4">
+                    <div class="receipt-item"><span>Trabajador:</span> <span id="receiptNombre"></span></div>
+                    <div class="receipt-item"><span>Cédula:</span> <span id="receiptCedula"></span></div>
+                    <div class="receipt-item"><span>Salario Mensual:</span> <span id="receiptSalarioMensual"></span></div>
+                    <div class="receipt-item"><span>Periodo de Liquidación:</span> <span id="receiptPeriodoLiquidacion"></span></div>
+                    <div class="receipt-item"><span>Días Trabajados:</span> <span id="receiptDiasTrabajados"></span></div>
+                </div>
+
+                <div class="receipt-title">DEVENGADO</div>
+                <div class="mb-4">
+                    <div class="receipt-item"><span>Valor Días Trabajados:</span> <span id="receiptValorDiasTrabajados"></span></div>
+                    <div class="receipt-item"><span>Auxilio de Transporte:</span> <span id="receiptAuxilioTransporte"></span></div>
+                    <div class="receipt-item"><span>Otros Ingresos:</span> <span id="receiptOtrosIngresos"></span></div>
+                    <div class="receipt-item receipt-total"><span>TOTAL DEVENGADO:</span> <span id="receiptTotalDevengado"></span></div>
+                </div>
+
+                <div class="receipt-title">DEDUCCIONES</div>
+                <div class="mb-4">
+                    <div class="receipt-item"><span>Salud (4%):</span> <span id="receiptDeduccionSalud"></span></div>
+                    <div class="receipt-item"><span>Pensión (4%):</span> <span id="receiptDeduccionPension"></span></div>
+                    <div class="receipt-item"><span>Otros Descuentos:</span> <span id="receiptOtrosDescuentos"></span></div>
+                    <div class="receipt-item receipt-total"><span>TOTAL DEDUCCIONES:</span> <span id="receiptTotalDeducciones"></span></div>
+                </div>
+
+                <div class="receipt-item receipt-total text-xl text-green-700">
+                    <span>NETO A PAGAR:</span> <span id="receiptNetoPagar"></span>
+                </div>
+
+                <div class="mt-8 pt-4 border-t border-gray-300 text-center">
+                    <p class="mb-2">__________________________</p>
+                    <p>Firma del Trabajador</p>
+                </div>
+
+                <div class="receipt-footer">
+                    <p>¡Gracias por tu trabajo!</p>
+                </div>
+            </div>
+            <div class="mt-6 flex flex-col sm:flex-row justify-center gap-4 no-print">
+                <button id="volverAResultadosBtn" class="bg-gray-500 text-white py-3 px-8 rounded-lg hover:bg-gray-600 shadow-md flex items-center text-lg">
+                    <i class="fas fa-arrow-left mr-3"></i>Volver a Resultados
+                </button>
+                <button id="imprimirReciboFinalBtn" class="bg-indigo-600 text-white py-3 px-8 rounded-lg hover:bg-indigo-700 shadow-md flex items-center text-lg">
+                    <i class="fas fa-print mr-3"></i>Imprimir Recibo
+                </button>
+            </div>
+        </section>
+        
+        <footer class="mt-12 text-center text-gray-500 text-sm no-print">
+            <p>&copy; <span id="currentYear"></span> Calculadora de Nómina Colombia. Herramienta de referencia. Verifique siempre con la normativa vigente.</p>
+        </footer>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configuración y constantes globales
+        const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        // Festivos Colombia 2025. Es crucial mantener esta lista actualizada anualmente.
+        const festivosColombia2025 = [
+            "2025-01-01", "2025-01-06", "2025-03-24", "2025-04-17", "2025-04-18",
+            "2025-05-01", "2025-06-02", "2025-06-23", "2025-06-30", "2025-07-20",
+            "2025-08-07", "2025-08-18", "2025-10-13", "2025-11-03", "2025-11-17",
+            "2025-12-08", "2025-12-25"
+        ];
+        let registrosHorarios = []; // Almacena los objetos de cada fila de horario
+
+        // Elementos del DOM (Inputs de configuración)
+        const nombreInput = document.getElementById('nombre');
+        const cedulaInput = document.getElementById('cedula');
+        const salarioInput = document.getElementById('salario');
+        const transporteInput = document.getElementById('transporte');
+        const jornadaSelect = document.getElementById('jornada');
+        const descansoSelect = document.getElementById('descanso');
+        const reembolsoInput = document.getElementById('reembolso');
+        const descuentoInput = document.getElementById('descuento');
+        
+        // Elementos del DOM (Configuración de horarios por defecto y prellenado)
+        const horaEntradaInput = document.getElementById('horaEntrada');
+        const horaSalidaInput = document.getElementById('horaSalida');
+        const horasDescansoPeriodoInput = document.getElementById('horasDescansoPeriodo');
+        const fechaInicioInput = document.getElementById('fechaInicio');
+        const fechaFinInput = document.getElementById('fechaFin');
+        
+        // Elementos del DOM (Tabla de horarios y botones de acción)
+        const horariosTableBody = document.getElementById('horarios');
+        const agregarDiaBtn = document.getElementById('agregarDia');
+        const prellenarBtn = document.getElementById('prellenar');
+        const calcularBtn = document.getElementById('calcular');
+        const imprimirBtn = document.getElementById('imprimir'); // Botón de imprimir resultados detallados
+        const resultadosSeccion = document.getElementById('resultadosSeccion');
+        
+        // Elementos del DOM para la sección del recibo
+        const reciboNominaSeccion = document.getElementById('reciboNominaSeccion'); 
+        const mostrarImprimirReciboBtn = document.getElementById('mostrarImprimirReciboBtn'); // NUEVO botón para mostrar recibo
+        const imprimirReciboFinalBtn = document.getElementById('imprimirReciboFinalBtn'); // Botón de imprimir recibo (dentro de la sección)
+        const volverAResultadosBtn = document.getElementById('volverAResultadosBtn'); // Botón para volver a resultados
+        const guardarEnSheetsBtn = document.getElementById('guardarEnSheets'); // NUEVO botón para guardar en sheets
+
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Referencias para los elementos del recibo
+        const receiptFechaEmision = document.getElementById('receiptFechaEmision');
+        const receiptNombre = document.getElementById('receiptNombre');
+        const receiptCedula = document.getElementById('receiptCedula');
+        const receiptSalarioMensual = document.getElementById('receiptSalarioMensual');
+        const receiptPeriodoLiquidacion = document.getElementById('receiptPeriodoLiquidacion');
+        const receiptDiasTrabajados = document.getElementById('receiptDiasTrabajados');
+        const receiptValorDiasTrabajados = document.getElementById('receiptValorDiasTrabajados');
+        const receiptAuxilioTransporte = document.getElementById('receiptAuxilioTransporte');
+        const receiptOtrosIngresos = document.getElementById('receiptOtrosIngresos');
+        const receiptTotalDevengado = document.getElementById('totalDevengado'); // Referencia directa al elemento de resultados
+        const receiptDeduccionSalud = document.getElementById('deduccionSalud'); // Referencia directa al elemento de resultados
+        const receiptDeduccionPension = document.getElementById('deduccionPension'); // Referencia directa al elemento de resultados
+        const receiptOtrosDescuentos = document.getElementById('valorDescuento'); // Referencia directa al elemento de resultados
+        const receiptTotalDeducciones = document.getElementById('totalDeducciones'); // Referencia directa al elemento de resultados
+        const receiptNetoPagar = document.getElementById('netoPagar'); // Referencia directa al elemento de resultados
+
+
+        // Constantes para cálculos de nómina (factores de recargo)
+        // Estos deben estar alineados con la legislación colombiana vigente.
+        const SMMLV_EJEMPLO_2025 = 1423500; // Salario Mínimo Mensual Legal Vigente (ejemplo para 2025, actualizar)
+        const LIMITE_AUXILIO_TRANSPORTE = 2 * SMMLV_EJEMPLO_2025; // Límite para derecho a auxilio de transporte
+        
+        const HORA_INICIO_NOCTURNA = 21; // 9 PM, inicio de jornada nocturna
+        const HORA_FIN_NOCTURNA = 6;   // 6 AM, fin de jornada nocturna
+
+        const RN_FACTOR = 0.35;      // Recargo Nocturno (35%)
+        const HED_FACTOR = 0.25;     // Hora Extra Diurna (25%)
+        const HEN_FACTOR = 0.75;     // Hora Extra Nocturna (75%)
+        const HODF_FACTOR = 0.75;    // Hora Ordinaria Dominical/Festiva (75% adicional, total 175%)
+        // HEDF = HODF_FACTOR + HED_FACTOR = 0.75 + 0.25 = 1.0 (total 200% del valor hora)
+        // HENF = HODF_FACTOR + HEN_FACTOR = 0.75 + 0.75 = 1.5 (total 250% del valor hora)
+
+        // Inicialización de la aplicación
+        setDefaultDates();
+        agregarDiaBtn.addEventListener('click', () => agregarDia(null, { isManualAdd: true, entrada: '', salida: '' }));
+        prellenarBtn.addEventListener('click', prellenarHorarios);
+        calcularBtn.addEventListener('click', calcularNomina);
+        
+        // Event Listeners para los botones de impresión y visualización
+        imprimirBtn.addEventListener('click', printNomina);
+        mostrarImprimirReciboBtn.addEventListener('click', mostrarReciboParaImprimir);
+        imprimirReciboFinalBtn.addEventListener('click', printRecibo);
+        volverAResultadosBtn.addEventListener('click', volverAResultados);
+        guardarEnSheetsBtn.addEventListener('click', guardarDatosEnSheets); // Listener para el nuevo botón
+
+        // --- FUNCIONES AUXILIARES ---
+        function setDefaultDates() {
+            const today = new Date();
+            // Para obtener un período de 15 días, si estamos cerca de fin de mes, que sea la primera quincena del siguiente.
+            let firstDayOfPeriod = new Date(today.getFullYear(), today.getMonth(), 1);
+            let lastDayOfPeriod = new Date(today.getFullYear(), today.getMonth(), 15);
+
+            // Si ya estamos después del 15, prellenar para la segunda quincena del mes actual o primera del siguiente
+            if (today.getDate() > 15) {
+                firstDayOfPeriod = new Date(today.getFullYear(), today.getMonth(), 16);
+                lastDayOfPeriod = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Último día del mes actual
+                
+                // Si el mes tiene 31 días y es la segunda quincena, o si es quincena de fin de mes a inicio del siguiente
+                // Simplificado para el ejemplo: Siempre 1 al 15, o 16 al fin de mes
+                if (firstDayOfPeriod.getMonth() !== today.getMonth()) { // Si ya se pasó al siguiente mes al calcular 16
+                     firstDayOfPeriod = new Date(today.getFullYear(), today.getMonth(), 16);
+                     lastDayOfPeriod = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                }
+            }
+
+
+            // Ajustar para que la fecha no se vea afectada por la zona horaria en el input
+            const toISODateString = (date) => {
+                const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
+                const localISOTime = (new Date(date - tzoffset)).toISOString().slice(0,10);
+                return localISOTime;
+            }
+
+            fechaInicioInput.value = toISODateString(firstDayOfPeriod);
+            fechaFinInput.value = toISODateString(lastDayOfPeriod);
+            horaEntradaInput.value = "07:00";
+            horaSalidaInput.value = "16:00";
+        }
+        
+        function parseDateString(dateString) {
+            if (!dateString) return null;
+            // El formato ISOレンダー-MM-DD es interpretado correctamente por new Date() en UTC.
+            // Para asegurar que se interprete como fecha local, podemos añadir la hora.
+            const date = new Date(dateString + "T00:00:00");
+            if (isNaN(date.getTime())) return null;
+            return date;
+        }
+
+        function getWeekNumber(dateObj) {
+            if (!(dateObj instanceof Date) || isNaN(dateObj)) return '';
+            const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function actualizarEstiloFila(registro) {
+            const row = registro.row;
+            const fecha = parseDateString(registro.fechaInput.value);
+            
+            row.classList.remove('domingo-row', 'festivo-row', 'domingo-festivo-row');
+            if (!fecha) return;
+
+            const diaNum = fecha.getDay(); // 0 = Domingo
+            const esFestivoMarcado = registro.festivoCheck.checked;
+            
+            if (diaNum === 0 && esFestivoMarcado) {
+                row.classList.add('domingo-festivo-row');
+            } else if (diaNum === 0) {
+                row.classList.add('domingo-row');
+            } else if (esFestivoMarcado) {
+                row.classList.add('festivo-row');
+            }
+        }
+
+        function ordenarFilasPorFecha() {
+            const filas = Array.from(horariosTableBody.querySelectorAll('tr'));
+            
+            // Guardar las posiciones originales para detectar movimientos
+            const originalPositions = new Map();
+            filas.forEach((fila, index) => originalPositions.set(fila.id, index));
+
+            filas.sort((a, b) => {
+                const fechaA = parseDateString(a.querySelector('input[type="date"]').value);
+                const fechaB = parseDateString(b.querySelector('input[type="date"]').value);
+                if (!fechaA && !fechaB) return 0;
+                if (!fechaA) return 1; 
+                if (!fechaB) return -1;
+                return fechaA - fechaB;
+            });
+            
+            // Reinsertar y aplicar animación solo si la posición cambió
+            filas.forEach((fila, newIndex) => {
+                horariosTableBody.appendChild(fila); // Mueve la fila al final, manteniendo el orden
+                if (originalPositions.get(fila.id) !== newIndex) {
+                    fila.classList.remove('highlight'); 
+                    void fila.offsetWidth; // Trigger reflow to restart animation
+                    fila.classList.add('highlight');
+                }
+            });
+            
+            setTimeout(() => {
+                filas.forEach(fila => fila.classList.remove('highlight'));
+            }, 1200);
+        }
+
+        // --- FUNCIONES PRINCIPALES DE LA INTERFAZ ---
+        function agregarDia(fechaStr = null, options = {}) {
+            const { 
+                esDescansoProgramado = false, 
+                esFestivoPredefinido = false, 
+                isManualAdd = false,
+                entrada = horaEntradaInput.value, // Valor por defecto de configuración
+                salida = horaSalidaInput.value   // Valor por defecto de configuración
+            } = options;
+
+            const id = `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const row = document.createElement('tr');
+            row.id = id;
+            row.className = 'border-b border-gray-200 fila-movimiento hover:bg-gray-50';
+
+            // Celda Semana
+            const semanaCell = document.createElement('td');
+            semanaCell.className = 'py-2.5 px-3 sm:px-4 text-sm text-gray-700';
+            const semanaSpan = document.createElement('span');
+            semanaSpan.className = 'week-number';
+            semanaCell.appendChild(semanaSpan);
+
+            // Celda Fecha
+            const fechaCell = document.createElement('td');
+            fechaCell.className = 'py-2.5 px-3 sm:px-4';
+            const fechaInput = document.createElement('input');
+            fechaInput.type = 'date';
+            fechaInput.className = 'p-2 border border-gray-300 rounded-md w-full text-sm';
+            if (fechaStr) {
+                fechaInput.value = fechaStr;
+            } else if (isManualAdd) { // Si es agregado manualmente, iniciar en blanco
+                fechaInput.value = ''; 
+            } else if (registrosHorarios.length > 0) {
+                // Si hay filas, tomar la fecha de la última fila y sumar un día
+                const ultimaFechaStr = registrosHorarios[registrosHorarios.length - 1].fechaInput.value;
+                const ultimaFechaObj = parseDateString(ultimaFechaStr);
+                if (ultimaFechaObj) {
+                    ultimaFechaObj.setDate(ultimaFechaObj.getDate() + 1);
+                    fechaInput.value = ultimaFechaObj.toISOString().split('T')[0];
+                } else {
+                     fechaInput.value = new Date().toISOString().split('T')[0]; // fallback
+                }
+            } else {
+                fechaInput.value = new Date().toISOString().split('T')[0]; // Hoy por defecto si no hay fecha
+            }
+            fechaCell.appendChild(fechaInput);
+
+            // Celda Día
+            const diaCell = document.createElement('td');
+            diaCell.className = 'py-2.5 px-3 sm:px-4 text-sm text-gray-700 day-label';
+            const diaSpan = document.createElement('span');
+            diaCell.appendChild(diaSpan);
+
+            // Celdas Entrada y Salida
+            const entradaCell = document.createElement('td');
+            entradaCell.className = 'py-2.5 px-3 sm:px-4';
+            const entradaInput = document.createElement('input');
+            entradaInput.type = 'time';
+            entradaInput.className = 'time-input p-2 border border-gray-300 rounded-md w-full text-sm';
+            entradaInput.value = esDescansoProgramado ? '' : entrada;
+            entradaCell.appendChild(entradaInput);
+
+            const salidaCell = document.createElement('td');
+            salidaCell.className = 'py-2.5 px-3 sm:px-4';
+            const salidaInput = document.createElement('input');
+            salidaInput.type = 'time';
+            salidaInput.className = 'time-input p-2 border border-gray-300 rounded-md w-full text-sm';
+            salidaInput.value = esDescansoProgramado ? '' : salida;
+            salidaCell.appendChild(salidaInput); 
+
+            // Celda Auxilio de Transporte
+            const transporteCell = document.createElement('td');
+            transporteCell.className = 'py-2.5 px-3 sm:px-4 text-center';
+            const transporteCheck = document.createElement('input');
+            transporteCheck.type = 'checkbox';
+            transporteCheck.className = 'h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500';
+            // CAMBIO AQUÍ: Siempre activo por defecto
+            transporteCheck.checked = true; 
+            transporteCell.appendChild(transporteCheck);
+
+            // Celda Festivo
+            const festivoCell = document.createElement('td');
+            festivoCell.className = 'py-2.5 px-3 sm:px-4 text-center';
+            const festivoCheck = document.createElement('input');
+            festivoCheck.type = 'checkbox';
+            festivoCheck.className = 'h-5 w-5 text-yellow-500 border-gray-300 rounded focus:ring-yellow-400';
+            festivoCheck.checked = esFestivoPredefinido || festivosColombia2025.includes(fechaInput.value);
+            festivoCell.appendChild(festivoCheck);
+
+            // Celda Acciones
+            const accionesCell = document.createElement('td');
+            accionesCell.className = 'py-2.5 px-3 sm:px-4 no-print';
+            const eliminarBtn = document.createElement('button');
+            eliminarBtn.className = 'text-red-500 hover:text-red-700 transition-colors duration-150';
+            eliminarBtn.innerHTML = '<i class="fas fa-trash-alt fa-lg"></i>';
+            eliminarBtn.title = "Eliminar esta fila";
+            eliminarBtn.addEventListener('click', () => {
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(-100%)';
+                setTimeout(() => {
+                    horariosTableBody.removeChild(row);
+                    registrosHorarios = registrosHorarios.filter(r => r.id !== id);
+                    // No es necesario reordenar al eliminar una sola fila si ya estaban ordenadas.
+                }, 400);
+            });
+            accionesCell.appendChild(eliminarBtn);
+
+            // Ensamblar fila y añadir a la tabla
+            row.append(semanaCell, fechaCell, diaCell, entradaCell, salidaCell, transporteCell, festivoCell, accionesCell);
+            horariosTableBody.appendChild(row);
+
+            const nuevoRegistro = { id, row, fechaInput, diaSpan, entradaInput, salidaInput, transporteCheck, festivoCheck, semanaSpan };
+            registrosHorarios.push(nuevoRegistro);
+
+            // Función para actualizar la información de la fila cuando cambia la fecha
+            function actualizarInfoFilaPorFecha() {
+                const fechaObj = parseDateString(fechaInput.value);
+                if (fechaObj) {
+                    diaSpan.textContent = diasSemana[fechaObj.getDay()];
+                    semanaSpan.textContent = getWeekNumber(fechaObj);
+                    if (!isManualAdd && !esDescansoProgramado) { // Evitar auto-marcar si es manual o descanso predefinido
+                         festivoCheck.checked = festivosColombia2025.includes(fechaInput.value);
+                    }
+                } else {
+                    diaSpan.textContent = 'Inválida';
+                    semanaSpan.textContent = '-';
+                }
+                actualizarEstiloFila(nuevoRegistro);
+                ordenarFilasPorFecha(); // Reordenar siempre que una fecha cambie
+            }
+
+            fechaInput.addEventListener('change', actualizarInfoFilaPorFecha);
+            festivoCheck.addEventListener('change', () => actualizarEstiloFila(nuevoRegistro));
+            
+            actualizarInfoFilaPorFecha(); // Llamada inicial para establecer valores
+            
+            if (isManualAdd) { // Solo para el nuevo agregado manualmente
+                 ordenarFilasPorFecha(); 
+                 row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                 fechaInput.focus(); // Intenta abrir el calendario
+            }
+        }
+
+        function prellenarHorarios() {
+            const fechaInicioStr = fechaInicioInput.value;
+            const fechaFinStr = fechaFinInput.value;
+            const diaDescansoSeleccionado = descansoSelect.value; // "domingo", "sabado", etc.
+            
+            if (!fechaInicioStr || !fechaFinStr) {
+                alert('Por favor, seleccione un rango de fechas (inicio y fin) para prellenar.');
+                return;
+            }
+            if (fechaInicioStr > fechaFinStr) {
+                alert('La fecha de inicio no puede ser posterior a la fecha de fin.');
+                return;
+            }
+
+            horariosTableBody.innerHTML = ''; // Limpiar tabla existente
+            registrosHorarios = [];
+
+            const startDate = parseDateString(fechaInicioStr);
+            const endDate = parseDateString(fechaFinStr);
+            if (!startDate || !endDate) {
+                alert('Una de las fechas ingresadas no es válida.');
+                return;
+            }
+            
+            let currentDate = new Date(startDate);
+            currentDate.setHours(0,0,0,0); // Normalizar a medianoche para evitar problemas con la comparación de fechas
+
+            while (currentDate <= endDate) {
+                const fechaISO = currentDate.toISOString().split('T')[0];
+                const diaSemanaNum = currentDate.getDay(); 
+                const diaSemanaNombre = diasSemana[diaSemanaNum].toLowerCase();
+                
+                let esDescansoDelTrabajador = (diaSemanaNombre === diaDescansoSeleccionado);
+                const esFestivoConocido = festivosColombia2025.includes(fechaISO);
+                
+                agregarDia(fechaISO, { 
+                    esDescansoProgramado: esDescansoDelTrabajador, 
+                    esFestivoPredefinido: esFestivoConocido,
+                    isManualAdd: false, // Indicar que no es un agregado manual
+                    entrada: esDescansoDelTrabajador ? '' : horaEntradaInput.value,
+                    salida: esDescansoDelTrabajador ? '' : horaSalidaInput.value
+                });
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            ordenarFilasPorFecha(); // Ordenar todo al final del prellenado
+            console.log("Registros horarios después de prellenar:", registrosHorarios); // Debugging
+        }
+        
+        function timeToDecimal(timeStr) { 
+            if (!timeStr) return 0;
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            if (isNaN(hours) || isNaN(minutes)) return 0;
+            return hours + (minutes / 60);
+        }
+
+        // --- FUNCIÓN PRINCIPAL DE CÁLCULO DE NÓMINA ---
+        function calcularNomina() {
+            console.log("Función calcularNomina llamada."); // Debugging
+            // Asegura que las secciones de impresión estén ocultas por defecto al calcular
+            resultadosSeccion.style.display = 'none';
+            reciboNominaSeccion.style.display = 'none';
+
+            if (registrosHorarios.length === 0) {
+                alert("Por favor, agrega o prellena horarios antes de calcular la nómina.");
+                console.warn("registrosHorarios está vacío. No se puede calcular."); // Debugging
+                return;
+            }
+
+            const salarioMensual = parseFloat(salarioInput.value) || 0;
+            console.log("Salario Mensual:", salarioMensual); // Debugging
+            if (salarioMensual === 0) {
+                alert("El salario mensual debe ser mayor a cero.");
+                console.warn("Salario mensual es cero. No se puede calcular."); // Debugging
+                return;
+            }
+            const auxilioTransporteMensual = parseFloat(transporteInput.value) || 0;
+            const jornadaSemanal = parseInt(jornadaSelect.value) || 46;
+            const horasDescansoDiariasConfig = parseFloat(horasDescansoPeriodoInput.value) || 0;
+            const valorReembolsoOtrosIngresos = parseFloat(reembolsoInput.value) || 0;
+            const valorDescuentoOtrosConceptos = parseFloat(descuentoInput.value) || 0;
+
+            // Calcular valor hora ordinaria
+            // La forma más común y precisa es Salario / (horas semanales * 4.333333 semanas/mes)
+            // O usar las horas mensuales legales (ej. 240 para 48h, 235 para 47h, etc.)
+            // Para Ley 2101, las horas mensuales son: 47h -> 235; 46h -> 230; 44h -> 220; 42h -> 210
+            let horasMesCalculo;
+            switch(jornadaSemanal) {
+                case 47: horasMesCalculo = 235; break;
+                case 46: horasMesCalculo = 230; break;
+                case 44: horasMesCalculo = 220; break;
+                case 42: horasMesCalculo = 210; break;
+                case 48: horasMesCalculo = 240; break; // Referencia anterior
+                default: horasMesCalculo = jornadaSemanal * (52/12); // Aproximación para otras jornadas
+            }
+            const valorHoraOrdinaria = salarioMensual / horasMesCalculo;
+            console.log("Valor Hora Ordinaria:", valorHoraOrdinaria); // Debugging
+
+            // Inicializar contadores de horas y valores
+            let totalDiasTrabajadosPeriodo = 0;
+            let totalDiasConDerechoAuxTransporte = 0;
+            let totalDiasFestivosTrabajados = 0;
+
+            let H_Ord_D = 0, H_Rec_Noc_Ord = 0, H_Ext_D = 0, H_Ext_Noc = 0;
+            let H_Ord_DomFest_D = 0, H_Ord_DomFest_N_Con_Rec = 0; // Horas en Dom/Fest con recargo nocturno
+            let H_Ext_DomFest_D = 0, H_Ext_DomFest_N = 0;
+
+            const jornadaDiariaTeorica = jornadaSemanal / 6; // Asumiendo 6 días laborables para distribuir horas
+
+            registrosHorarios.forEach(reg => {
+                const entradaStr = reg.entradaInput.value;
+                const salidaStr = reg.salidaInput.value;
+                
+                if (!entradaStr || !salidaStr || (entradaStr === "00:00" && salidaStr === "00:00")) {
+                    console.log(`Fila ID ${reg.id}: No se procesa por horas vacías o 00:00-00:00`); // Debugging
+                    return; // No trabajó o no registró
+                }
+
+                totalDiasTrabajadosPeriodo++;
+                if (reg.transporteCheck.checked) {
+                    totalDiasConDerechoAuxTransporte++;
+                }
+
+                const fechaDia = parseDateString(reg.fechaInput.value);
+                const esDomingo = fechaDia.getDay() === 0;
+                const esFestivo = reg.festivoCheck.checked;
+                const esDomOFest = esDomingo || esFestivo;
+
+                if (esDomOFest && (entradaStr !== "" && salidaStr !== "")) totalDiasFestivosTrabajados++;
+
+
+                let entradaDec = timeToDecimal(entradaStr);
+                let salidaDec = timeToDecimal(salidaStr);
+
+                if (salidaDec < entradaDec) salidaDec += 24; // Manejo de turnos que cruzan medianoche
+
+                let horasLaboradasBrutas = salidaDec - entradaDec;
+                let horasLaboradasNetas = Math.max(0, horasLaboradasBrutas - horasDescansoDiariasConfig);
+                
+                if (horasLaboradasNetas <= 0) {
+                    console.log(`Fila ID ${reg.id}: Horas netas <= 0. No se procesan horas.`); // Debugging
+                    return;
+                }
+
+                let horasOrdinariasDelDia = Math.min(horasLaboradasNetas, jornadaDiariaTeorica);
+                let horasExtrasDelDia = Math.max(0, horasLaboradasNetas - jornadaDiariaTeorica);
+
+                // Clasificar horas ordinarias del día
+                for (let i = 0; i < horasOrdinariasDelDia; i += 1/60) { // Iterar minuto a minuto
+                    const horaActualIteracion = entradaDec + i;
+                    const horaDelDia24Fmt = Math.floor(horaActualIteracion) % 24; // Hora en formato 0-23
+                    const esHoraNocturna = (horaDelDia24Fmt >= HORA_INICIO_NOCTURNA || horaDelDia24Fmt < HORA_FIN_NOCTURNA);
+
+                    if (esDomOFest) { // Si es Domingo o Festivo
+                        if (esHoraNocturna) H_Ord_DomFest_N_Con_Rec += 1/60;
+                        else H_Ord_DomFest_D += 1/60;
+                    } else { // Si es día ordinario laboral
+                        if (esHoraNocturna) H_Rec_Noc_Ord += 1/60;
+                        else H_Ord_D += 1/60;
+                    }
+                }
+
+                // Clasificar horas extras del día
+                const inicioExtrasDec = entradaDec + horasOrdinariasDelDia;
+                for (let i = 0; i < horasExtrasDelDia; i += 1/60) {
+                    const horaActualIteracion = inicioExtrasDec + i;
+                    const horaDelDia24Fmt = Math.floor(horaActualIteracion) % 24;
+                    const esHoraNocturna = (horaDelDia24Fmt >= HORA_INICIO_NOCTURNA || horaDelDia24Fmt < HORA_FIN_NOCTURNA);
+                    
+                    if (esDomOFest) {
+                        if (esHoraNocturna) H_Ext_DomFest_N += 1/60;
+                        else H_Ext_DomFest_D += 1/60;
+                    } else {
+                        if (esHoraNocturna) H_Ext_Noc += 1/60;
+                        else H_Ext_D += 1/60;
+                    }
+                }
+            });
+            
+            // Redondear todas las horas a 2 decimales
+            const roundToTwo = (num) => parseFloat(num.toFixed(2));
+            H_Ord_D = roundToTwo(H_Ord_D);
+            H_Rec_Noc_Ord = roundToTwo(H_Rec_Noc_Ord);
+            H_Ext_D = roundToTwo(H_Ext_D);
+            H_Ext_Noc = roundToTwo(H_Ext_Noc);
+            H_Ord_DomFest_D = roundToTwo(H_Ord_DomFest_D);
+            H_Ord_DomFest_N_Con_Rec = roundToTwo(H_Ord_DomFest_N_Con_Rec);
+            H_Ext_DomFest_D = roundToTwo(H_Ext_DomFest_D);
+            H_Ext_DomFest_N = roundToTwo(H_Ext_DomFest_N);
+
+            console.log("Horas calculadas:", {H_Ord_D, H_Rec_Noc_Ord, H_Ext_D, H_Ext_Noc, H_Ord_DomFest_D, H_Ord_DomFest_N_Con_Rec, H_Ext_DomFest_D, H_Ext_DomFest_N}); // Debugging
+
+            // --- CÁLCULO DE VALORES MONETARIOS ---
+            const salarioBasicoPeriodo = (salarioMensual / 30) * totalDiasTrabajadosPeriodo; 
+            
+            const V_Ord_D = H_Ord_D * valorHoraOrdinaria;
+            const V_Rec_Noc_Ord = H_Rec_Noc_Ord * valorHoraOrdinaria * RN_FACTOR; // Solo el valor del recargo
+            const V_Ext_D = H_Ext_D * valorHoraOrdinaria * (1 + HED_FACTOR);
+            const V_Ext_Noc = H_Ext_Noc * valorHoraOrdinaria * (1 + HEN_FACTOR);
+            
+            // Para dominicales/festivos, el HODF_FACTOR ya incluye el 100% base + 75% recargo.
+            // Es decir, la hora dominical/festiva vale 1.75 veces la hora ordinaria.
+            const V_Ord_DomFest_D = H_Ord_DomFest_D * valorHoraOrdinaria * (1 + HODF_FACTOR);
+            // Para H_Ord_DomFest_N_Con_Rec: Hora base + Recargo Dom/Fest (75%) + Recargo Nocturno (35%)
+            const V_Ord_DomFest_N_Con_Rec = H_Ord_DomFest_N_Con_Rec * valorHoraOrdinaria * (1 + HODF_FACTOR + RN_FACTOR);
+            
+            const V_Ext_DomFest_D = H_Ext_DomFest_D * valorHoraOrdinaria * (1 + HODF_FACTOR + HED_FACTOR);
+            const V_Ext_DomFest_N = H_Ext_DomFest_N * valorHoraOrdinaria * (1 + HODF_FACTOR + HEN_FACTOR);
+
+            let valorAuxilioTransportePeriodo = 0;
+            if (salarioMensual <= LIMITE_AUXILIO_TRANSPORTE && totalDiasConDerechoAuxTransporte > 0) {
+                valorAuxilioTransportePeriodo = (auxilioTransporteMensual / 30) * totalDiasConDerechoAuxTransporte;
+            }
+            
+            // Total Devengado (sin incluir el salario básico del periodo aún, ya que las horas ordinarias lo componen)
+            const totalRecargosYExtras = V_Rec_Noc_Ord + V_Ext_D + V_Ext_Noc + V_Ord_DomFest_D + V_Ord_DomFest_N_Con_Rec + V_Ext_DomFest_D + V_Ext_DomFest_N;
+            const totalDevengadoCalculado = V_Ord_D + totalRecargosYExtras + valorAuxilioTransportePeriodo + valorReembolsoOtrosIngresos;
+
+
+            // Deducciones (Salud 4%, Pensión 4%)
+            // El IBC no incluye el auxilio de transporte, pero sí todos los demás pagos constitutivos de salario.
+            // El IBC no puede ser inferior a 1 SMMLV.
+            let ingresoBaseCotizacion = V_Ord_D + totalRecargosYExtras + valorReembolsoOtrosIngresos; // Asumiendo reembolso es salarial
+            if (ingresoBaseCotizacion < SMMLV_EJEMPLO_2025 && totalDiasTrabajadosPeriodo >=15 ) { // Ajuste proporcional si es menos de un mes
+                 ingresoBaseCotizacion = SMMLV_EJEMPLO_2025 * (totalDiasTrabajadosPeriodo / 30);
+                 if (ingresoBaseCotizacion < (V_Ord_D + totalRecargosYExtras + valorReembolsoOtrosIngresos)) { // Si el cálculo real es mayor, usar ese
+                    ingresoBaseCotizacion = V_Ord_D + totalRecargosYExtras + valorReembolsoOtrosIngresos;
+                 }
+            } else if (ingresoBaseCotizacion < (SMMLV_EJEMPLO_2025 * (totalDiasTrabajadosPeriodo / 30) ) ) {
+                 ingresoBaseCotizacion = SMMLV_EJEMPLO_2025 * (totalDiasTrabajadosPeriodo / 30);
+            }
+
+            const deduccionSalud = ingresoBaseCotizacion * 0.04;
+            const deduccionPension = ingresoBaseCotizacion * 0.04;
+            const totalDeduccionesCalc = deduccionSalud + deduccionPension + valorDescuentoOtrosConceptos;
+            const netoAPagar = totalDevengadoCalculado - totalDeduccionesCalc;
+
+            // --- MOSTRAR RESULTADOS EN LA INTERFAZ ---
+            const formatCOP = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits:0 }).format(value);
+
+            // Actualizar sección de resultados detallados
+            document.getElementById('diasTrabajados').textContent = totalDiasTrabajadosPeriodo;
+            document.getElementById('diasFestivos').textContent = totalDiasFestivosTrabajados;
+            document.getElementById('horasOrdinarias').textContent = H_Ord_D.toFixed(2);
+            document.getElementById('horasNocturnas').textContent = H_Rec_Noc_Ord.toFixed(2);
+            document.getElementById('horasExtraDiurnas').textContent = H_Ext_D.toFixed(2);
+            document.getElementById('horasExtraNocturnas').textContent = H_Ext_Noc.toFixed(2);
+            document.getElementById('horasDominicalesDiurnas').textContent = H_Ord_DomFest_D.toFixed(2);
+            document.getElementById('horasDominicalesNocturnas').textContent = H_Ord_DomFest_N_Con_Rec.toFixed(2);
+            document.getElementById('horasExtraDominicalesDiurnas').textContent = H_Ext_DomFest_D.toFixed(2);
+            document.getElementById('horasExtraDominicalesNocturnas').textContent = H_Ext_DomFest_N.toFixed(2);
+
+            document.getElementById('salarioBaseCalculado').textContent = formatCOP(salarioBasicoPeriodo); // Muestra el salario base proporcional
+            document.getElementById('valorOrdinarias').textContent = formatCOP(V_Ord_D);
+            document.getElementById('valorRecargoNocturno').textContent = formatCOP(V_Rec_Noc_Ord);
+            document.getElementById('valorExtraDiurnas').textContent = formatCOP(V_Ext_D);
+            document.getElementById('valorExtraNocturnas').textContent = formatCOP(V_Ext_Noc);
+            document.getElementById('valorDominicalesDiurnas').textContent = formatCOP(V_Ord_DomFest_D);
+            document.getElementById('valorDominicalesNocturnas').textContent = formatCOP(V_Ord_DomFest_N_Con_Rec);
+            document.getElementById('valorExtraDominicalesDiurnas').textContent = formatCOP(V_Ext_DomFest_D);
+            document.getElementById('valorExtraDominicalesNocturnas').textContent = formatCOP(V_Ext_DomFest_N);
+            document.getElementById('valorTransporte').textContent = formatCOP(valorAuxilioTransportePeriodo);
+            document.getElementById('valorReembolso').textContent = formatCOP(valorReembolsoOtrosIngresos);
+            document.getElementById('totalDevengado').textContent = formatCOP(totalDevengadoCalculado);
+
+            document.getElementById('deduccionSalud').textContent = formatCOP(deduccionSalud);
+            document.getElementById('deduccionPension').textContent = formatCOP(deduccionPension);
+            document.getElementById('valorDescuento').textContent = formatCOP(valorDescuentoOtrosConceptos);
+            document.getElementById('totalDeducciones').textContent = formatCOP(totalDeduccionesCalc);
+            document.getElementById('netoPagar').textContent = formatCOP(netoAPagar);
+            
+            // Mostrar la sección de resultados detallados por defecto después del cálculo
+            resultadosSeccion.style.display = 'block';
+            reciboNominaSeccion.style.display = 'none'; // Asegurarse de que el recibo esté oculto
+            resultadosSeccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // Actualizar sección del recibo de nómina (se llena siempre, pero solo se muestra si se activa)
+            receiptFechaEmision.textContent = new Date().toLocaleDateString('es-CO');
+            receiptNombre.textContent = nombreInput.value || 'N/A';
+            receiptCedula.textContent = cedulaInput.value || 'N/A';
+            receiptSalarioMensual.textContent = formatCOP(salarioMensual);
+            
+            const fechaInicioPeriodo = registrosHorarios.length > 0 ? registrosHorarios[0].fechaInput.value : 'N/A';
+            const fechaFinPeriodo = registrosHorarios.length > 0 ? registrosHorarios[registrosHorarios.length - 1].fechaInput.value : 'N/A';
+            receiptPeriodoLiquidacion.textContent = `${fechaInicioPeriodo} - ${fechaFinPeriodo}`;
+            
+            receiptDiasTrabajados.textContent = totalDiasTrabajadosPeriodo;
+            receiptValorDiasTrabajados.textContent = formatCOP(salarioBasicoPeriodo);
+            receiptAuxilioTransporte.textContent = formatCOP(valorAuxilioTransportePeriodo);
+            
+            // Otros ingresos = Reembolsos + todos los recargos y horas extras
+            const otrosIngresosRecibo = valorReembolsoOtrosIngresos + totalRecargosYExtras;
+            receiptOtrosIngresos.textContent = formatCOP(otrosIngresosRecibo);
+            receiptTotalDevengado.textContent = formatCOP(totalDevengadoCalculado);
+
+            receiptDeduccionSalud.textContent = formatCOP(deduccionSalud);
+            receiptDeduccionPension.textContent = formatCOP(deduccionPension);
+            receiptOtrosDescuentos.textContent = formatCOP(valorDescuentoOtrosConceptos);
+            receiptTotalDeducciones.textContent = formatCOP(totalDeduccionesCalc);
+            receiptNetoPagar.textContent = formatCOP(netoAPagar);
+        }
+
+        // Función para imprimir la nómina detallada
+        function printNomina() {
+            calcularNomina(); // Asegura que los datos estén actualizados y la sección de resultados esté visible
+            // Oculta todas las secciones excepto #resultadosSeccion para la impresión
+            document.body.classList.add('print-mode-nomina');
+            window.print();
+            // Restaura la visibilidad normal después de la impresión
+            document.body.classList.remove('print-mode-nomina');
+        }
+
+        // Función para mostrar el recibo y prepararlo para imprimir
+        function mostrarReciboParaImprimir() {
+            calcularNomina(); // Asegura que los datos estén actualizados
+            
+            // Oculta la sección de resultados y muestra la del recibo
+            resultadosSeccion.style.display = 'none';
+            reciboNominaSeccion.style.display = 'block';
+            reciboNominaSeccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Función para imprimir el recibo (cuando ya está visible en pantalla)
+        function printRecibo() {
+            // Oculta todas las secciones excepto #reciboNominaSeccion para la impresión
+            document.body.classList.add('print-mode-recibo');
+            window.print();
+            // Restaura la visibilidad normal después de la impresión
+            document.body.classList.remove('print-mode-recibo');
+        }
+
+        // Función para volver a la sección de resultados desde el recibo
+        function volverAResultados() {
+            reciboNominaSeccion.style.display = 'none';
+            resultadosSeccion.style.display = 'block';
+            resultadosSeccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        async function guardarDatosEnSheets() {
+            calcularNomina(); // Asegura que los datos estén actualizados antes de enviarlos
+
+            const datosParaGuardar = {
+                nombre: nombreInput.value,
+                cedula: cedulaInput.value,
+                salarioMensual: parseFloat(salarioInput.value),
+                auxilioTransporteMensual: parseFloat(transporteInput.value),
+                jornadaLaboralSemanal: parseInt(jornadaSelect.value),
+                horasDescansoDiarias: parseFloat(horasDescansoPeriodoInput.value),
+                otrosIngresos: parseFloat(reembolsoInput.value),
+                otrosDescuentos: parseFloat(descuentoInput.value),
+                
+                diasTrabajadosPeriodo: parseFloat(document.getElementById('diasTrabajados').textContent),
+                diasFestivosTrabajados: parseFloat(document.getElementById('diasFestivos').textContent),
+                horasOrdinariasDiurnas: parseFloat(document.getElementById('horasOrdinarias').textContent),
+                horasRecargoNocturno: parseFloat(document.getElementById('horasNocturnas').textContent),
+                horasExtraDiurnas: parseFloat(document.getElementById('horasExtraDiurnas').textContent),
+                horasExtraNocturnas: parseFloat(document.getElementById('horasExtraNocturnas').textContent),
+                horasDominicalesDiurnas: parseFloat(document.getElementById('horasDominicalesDiurnas').textContent),
+                horasDominicalesNocturnas: parseFloat(document.getElementById('horasDominicalesNocturnas').textContent),
+                horasExtraDominicalesDiurnas: parseFloat(document.getElementById('horasExtraDominicalesDiurnas').textContent),
+                horasExtraDominicalesNocturnas: parseFloat(document.getElementById('horasExtraDominicalesNocturnas').textContent),
+
+                valorSalarioBasePeriodo: parseFloat(document.getElementById('salarioBaseCalculado').textContent.replace(/[^0-9.-]+/g,"")),
+                valorHorasOrdinariasDiurnas: parseFloat(document.getElementById('valorOrdinarias').textContent.replace(/[^0-9.-]+/g,"")),
+                valorRecargoNocturno: parseFloat(document.getElementById('valorRecargoNocturno').textContent.replace(/[^0-9.-]+/g,"")),
+                valorHorasExtraDiurnas: parseFloat(document.getElementById('valorExtraDiurnas').textContent.replace(/[^0-9.-]+/g,"")),
+                valorHorasExtraNocturnas: parseFloat(document.getElementById('valorExtraNocturnas').textContent.replace(/[^0-9.-]+/g,"")),
+                valorHorasDominicalesDiurnas: parseFloat(document.getElementById('valorDominicalesDiurnas').textContent.replace(/[^0-9.-]+/g,"")),
+                valorHorasDominicalesNocturnas: parseFloat(document.getElementById('valorDominicalesNocturnas').textContent.replace(/[^0-9.-]+/g,"")),
+                valorHorasExtraDominicalesDiurnas: parseFloat(document.getElementById('valorExtraDominicalesDiurnas').textContent.replace(/[^0-9.-]+/g,"")),
+                valorHorasExtraDominicalesNocturnas: parseFloat(document.getElementById('valorExtraDominicalesNocturnas').textContent.replace(/[^0-9.-]+/g,"")),
+                valorAuxilioTransporte: parseFloat(document.getElementById('valorTransporte').textContent.replace(/[^0-9.-]+/g,"")),
+                valorReembolso: parseFloat(document.getElementById('valorReembolso').textContent.replace(/[^0-9.-]+/g,"")),
+                totalDevengado: parseFloat(document.getElementById('totalDevengado').textContent.replace(/[^0-9.-]+/g,"")),
+                
+                deduccionSalud: parseFloat(document.getElementById('deduccionSalud').textContent.replace(/[^0-9.-]+/g,"")),
+                deduccionPension: parseFloat(document.getElementById('deduccionPension').textContent.replace(/[^0-9.-]+/g,"")),
+                valorDescuento: parseFloat(document.getElementById('valorDescuento').textContent.replace(/[^0-9.-]+/g,"")),
+                totalDeducciones: parseFloat(document.getElementById('totalDeducciones').textContent.replace(/[^0-9.-]+/g,"")),
+                netoPagar: parseFloat(document.getElementById('netoPagar').textContent.replace(/[^0-9.-]+/g,"")),
+                
+                detallesHorarios: registrosHorarios.map(reg => ({
+                    fecha: reg.fechaInput.value,
+                    dia: reg.diaSpan.textContent,
+                    entrada: reg.entradaInput.value,
+                    salida: reg.salidaInput.value,
+                    auxTransporteCheck: reg.transporteCheck.checked,
+                    festivoCheck: reg.festivoCheck.checked
+                }))
+            };
+
+            // URL de tu Google Apps Script desplegado como aplicación web
+            const urlAppsScript ='https://script.google.com/macros/s/AKfycbyvwlqVfY3z07uM_VWrgHqNdAZQImfBSBSyFA2AgcJ5JHMSnO8FynmveqWCfM6KL_EG/exec'; 
+
+            try {
+                const response = await fetch(urlAppsScript, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(datosParaGuardar),
+                });
+
+                const result = await response.text(); 
+                if (response.ok) {
+                    alert('¡Datos guardados en Google Sheets exitosamente!');
+                    console.log('Respuesta de Apps Script:', result);
+                } else {
+                    alert('Error al guardar datos. Revisa la consola para más detalles.');
+                    console.error('Error de Apps Script:', result);
+                }
+            } catch (error) {
+                console.error('Error de conexión o al enviar datos:', error);
+                alert('Hubo un error al intentar guardar los datos. Verifica tu conexión o la URL del script.');
+            }
+        }
+        
+        // Carga inicial de la aplicación
+        prellenarHorarios(); // Prellenar con las fechas por defecto al cargar la página
+
+    });
+    </script>
+</body>
+</html>
